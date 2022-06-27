@@ -1,1 +1,1 @@
-web: bin/server
+web: bin/Agora-Demo-Tokens-Go-Server
