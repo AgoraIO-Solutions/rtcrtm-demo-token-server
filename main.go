@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/RtcTokenBuilder"
 	rtmtokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/RtmTokenBuilder"
 	"github.com/gin-gonic/gin"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -30,7 +30,7 @@ func generateRTMToken(intUid uint32) string {
 	result, err := rtmtokenbuilder.BuildToken(appID, appCertificate, uid, rtmtokenbuilder.RoleRtmUser, expireTimestamp)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("Error %+v", err)
 	}
 	return result
 }
@@ -41,7 +41,7 @@ func generateRtcToken(int_uid uint32, channelName string, role rtctokenbuilder.R
 	tokenExpireTimeInSeconds := uint32(60 * 60 * 24)
 	result, err := rtctokenbuilder.BuildTokenWithUID(appID, appCertificate, channelName, int_uid, role, tokenExpireTimeInSeconds)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("Error %+v", err)
 	}
 	return result
 }
@@ -68,7 +68,14 @@ func getToken(c *gin.Context) {
 }
 
 func main() {
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		log.Fatal("$PORT must be set")
+	}
+
 	router := gin.Default()
+	router.Use(gin.Logger())
 	router.GET("/token", getToken)
-	router.Run("localhost:8080")
+	router.Run(":" + port)
 }
