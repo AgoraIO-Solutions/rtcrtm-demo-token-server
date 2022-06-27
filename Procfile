@@ -1,1 +1,1 @@
-web: bin/thing
+web: bin/server
