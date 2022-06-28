@@ -13,10 +13,9 @@ import (
 )
 
 type Token struct {
-	UID     uint32 `json:"uid"`
-	CHANNEL string `json:"channel"`
-	RTC     string `json:"token2"`
-	RTM     string `json:"rtm"`
+	UID      uint32            `json:"uid"`
+	CHANNELS map[string]string `json:"channels"`
+	RTM      string            `json:"rtm"`
 }
 
 func generateRTMToken(intUid uint32) string {
@@ -35,11 +34,11 @@ func generateRTMToken(intUid uint32) string {
 	return result
 }
 
-func generateRtcToken(int_uid uint32, channelName string, role rtctokenbuilder.Role) string {
+func generateRtcToken(uid uint32, channelName string, role rtctokenbuilder.Role) string {
 	appID := os.Getenv("APP_ID")
 	appCertificate := os.Getenv("CERTIFICATE")
 	tokenExpireTimeInSeconds := uint32(60 * 60 * 24)
-	result, err := rtctokenbuilder.BuildTokenWithUID(appID, appCertificate, channelName, int_uid, role, tokenExpireTimeInSeconds)
+	result, err := rtctokenbuilder.BuildTokenWithUID(appID, appCertificate, channelName, uid, role, tokenExpireTimeInSeconds)
 	if err != nil {
 		log.Printf("Error %+v", err)
 	}
@@ -53,18 +52,20 @@ func generateARandomUID() uint32 {
 
 func getToken(c *gin.Context) {
 	uid := generateARandomUID()
+	rtmToken := generateRTMToken(uid)
 	channels, _ := c.GetQueryArray("channels[]")
-	tokens := make([]Token, len(channels))
-	for idx, channel := range channels {
+
+	tokensMap := make(map[string]string)
+	for _, channel := range channels {
 		rtcToken := generateRtcToken(uid, channel, rtctokenbuilder.RolePublisher)
-		rtmToken := generateRTMToken(uid)
-		sampleToken := Token{
-			UID: uid, RTC: rtcToken, CHANNEL: channel, RTM: rtmToken,
-		}
-		tokens[idx] = sampleToken
+		tokensMap[channel] = rtcToken
 	}
 
-	c.IndentedJSON(http.StatusOK, tokens)
+	token := Token{
+		UID: uid, CHANNELS: tokensMap, RTM: rtmToken,
+	}
+
+	c.IndentedJSON(http.StatusOK, token)
 }
 
 func main() {
