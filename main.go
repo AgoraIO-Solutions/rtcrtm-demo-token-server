@@ -14,16 +14,16 @@ import (
 
 type Token struct {
 	UID      uint32            `json:"uid"`
+	RTMUID   string            `json:"rtmuid"`
 	CHANNELS map[string]string `json:"channels"`
 	RTM      string            `json:"rtm"`
 }
 
-func generateRTMToken(intUid uint32) string {
+func generateRTMToken(intUid uint32, uid string) string {
 	appID := os.Getenv("APP_ID")
 	appCertificate := os.Getenv("CERTIFICATE")
 	expireTimeInSeconds := uint32(24 * 60 * 60)
 	currentTimestamp := uint32(time.Now().UTC().Unix())
-	uid := strconv.FormatUint(uint64(intUid), 10)
 	expireTimestamp := currentTimestamp + expireTimeInSeconds
 
 	result, err := rtmtokenbuilder.BuildToken(appID, appCertificate, uid, rtmtokenbuilder.RoleRtmUser, expireTimestamp)
@@ -50,10 +50,36 @@ func generateARandomUID() uint32 {
 	return rand.Uint32()
 }
 
-func getToken(c *gin.Context) {
+func getNewToken(c *gin.Context) {
 	uid := generateARandomUID()
-	rtmToken := generateRTMToken(uid)
-	channels, _ := c.GetQueryArray("channels[]")
+	getToken(c, uid)
+}
+
+func getRefreshToken(c *gin.Context) {
+	uidStr, success := c.GetQuery("uid")
+	uid64, _ := strconv.ParseUint(uidStr, 10, 32)
+	uid := uint32(uid64)
+
+	if success {
+		getToken(c, uid)
+	} else {
+		handleGenericError("uid is a required query parameter", c)
+	}
+}
+
+func handleGenericError(msg string, c *gin.Context) {
+	c.JSON(400, map[string]interface{}{"error": msg})
+}
+
+func getToken(c *gin.Context, uid uint32) {
+	rtmUid := strconv.FormatUint(uint64(uid), 10)
+	rtmToken := generateRTMToken(uid, rtmUid)
+	channels, success := c.GetQueryArray("channels[]")
+
+	if !success {
+		handleGenericError("channels[] is a required query parameter", c)
+		return
+	}
 
 	tokensMap := make(map[string]string)
 	for _, channel := range channels {
@@ -62,7 +88,7 @@ func getToken(c *gin.Context) {
 	}
 
 	token := Token{
-		UID: uid, CHANNELS: tokensMap, RTM: rtmToken,
+		UID: uid, CHANNELS: tokensMap, RTM: rtmToken, RTMUID: rtmUid,
 	}
 
 	c.IndentedJSON(http.StatusOK, token)
@@ -77,6 +103,7 @@ func main() {
 
 	router := gin.Default()
 	router.Use(gin.Logger())
-	router.GET("/token", getToken)
+	router.GET("/token", getNewToken)
+	router.GET("/refreshToken", getRefreshToken)
 	router.Run(":" + port)
 }
