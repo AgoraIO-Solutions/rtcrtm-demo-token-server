@@ -60,10 +60,12 @@ func getRefreshToken(c *gin.Context) {
 	uid64, _ := strconv.ParseUint(uidStr, 10, 32)
 	uid := uint32(uid64)
 
-	if success {
-		getToken(c, uid)
-	} else {
+	if !success {
 		handleGenericError("uid is a required query parameter", c)
+	} else if uid == 0 {
+		handleGenericError("uid must be a numeric that can be converted to uint32", c)
+	} else {
+		getToken(c, uid)
 	}
 }
 
